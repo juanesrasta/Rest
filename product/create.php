@@ -12,7 +12,7 @@ include_once '../models/product.php';
 $database = new dataBase();
 $db = $database->getConnection();
 
-$product = new Product();
+$product = new Product($db);
 
 $data = json_decode(file_get_contents("php://input"));
 

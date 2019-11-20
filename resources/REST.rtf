@@ -1,0 +1,808 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang3082{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red0\green0\blue255;}
+{\*\generator Riched20 6.3.9600}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs22\lang10 5.0 CREATE PRODUCT\par
+5.1 Create create.php file\par
+Open product folder. Create a new create.php file. Open that file and put the following code inside it.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Content-Type: application/json; charset=UTF-8");\par
+header("Access-Control-Allow-Methods: POST");\par
+header("Access-Control-Max-Age: 3600");\par
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");\par
+\par
+// get database connection\par
+include_once '../config/database.php';\par
+\par
+// instantiate product object\par
+include_once '../objects/product.php';\par
+\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+\par
+$product = new Product($db);\par
+\par
+// get posted data\par
+$data = json_decode(file_get_contents("php://input"));\par
+\par
+// make sure data is not empty\par
+if(\par
+\tab !empty($data->name) &&\par
+\tab !empty($data->price) &&\par
+\tab !empty($data->description) &&\par
+\tab !empty($data->category_id)\par
+)\{\par
+\par
+\tab // set product property values\par
+\tab $product->name = $data->name;\par
+\tab $product->price = $data->price;\par
+\tab $product->description = $data->description;\par
+\tab $product->category_id = $data->category_id;\par
+\tab $product->created = date('Y-m-d H:i:s');\par
+\par
+\tab // create the product\par
+\tab if($product->create())\{\par
+\par
+\tab\tab // set response code - 201 created\par
+\tab\tab http_response_code(201);\par
+\par
+\tab\tab // tell the user\par
+\tab\tab echo json_encode(array("message" => "Product was created."));\par
+\tab\}\par
+\par
+\tab // if unable to create the product, tell the user\par
+\tab else\{\par
+\par
+\tab\tab // set response code - 503 service unavailable\par
+\tab     http_response_code(503);\par
+\par
+\tab\tab // tell the user\par
+\tab\tab echo json_encode(array("message" => "Unable to create product."));\par
+\tab\}\par
+\}\par
+\par
+// tell the user data is incomplete\par
+else\{\par
+\par
+\tab // set response code - 400 bad request\par
+\tab http_response_code(400);\par
+\par
+\tab // tell the user\par
+\tab echo json_encode(array("message" => "Unable to create product. Data is incomplete."));\par
+\}\par
+?>\par
+5.2 Product create() method\par
+Open objects folder. Open product.php file. The previous section will not work without the following code inside the Product (objects/product.php) class.\par
+\par
+// create product\par
+function create()\{\par
+\par
+\tab // query to insert record\par
+\tab $query = "INSERT INTO\par
+\tab\tab\tab\tab " . $this->table_name . "\par
+\tab\tab\tab SET\par
+\tab\tab\tab\tab name=:name, price=:price, description=:description, category_id=:category_id, created=:created";\par
+\par
+\tab // prepare query\par
+\tab $stmt = $this->conn->prepare($query);\par
+\par
+\tab // sanitize\par
+\tab $this->name=htmlspecialchars(strip_tags($this->name));\par
+\tab $this->price=htmlspecialchars(strip_tags($this->price));\par
+\tab $this->description=htmlspecialchars(strip_tags($this->description));\par
+\tab $this->category_id=htmlspecialchars(strip_tags($this->category_id));\par
+\tab $this->created=htmlspecialchars(strip_tags($this->created));\par
+\par
+\tab // bind values\par
+\tab $stmt->bindParam(":name", $this->name);\par
+\tab $stmt->bindParam(":price", $this->price);\par
+\tab $stmt->bindParam(":description", $this->description);\par
+\tab $stmt->bindParam(":category_id", $this->category_id);\par
+\tab $stmt->bindParam(":created", $this->created);\par
+\par
+\tab // execute query\par
+\tab if($stmt->execute())\{\par
+\tab\tab return true;\par
+\tab\}\par
+\par
+\tab return false;\par
+\tab\par
+\}\par
+5.3 Output\par
+To test for successful creation of a product, open POSTMAN. Enter the following as the request URL\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/create.php }}{\fldrslt{http://localhost/api/product/create.php\ul0\cf0}}}}\f0\fs22\par
+\par
+Click "Body" tab. Click "raw". Enter this JSON value:\par
+\par
+\{\par
+    "name" : "Amazing Pillow 2.0",\par
+    "price" : "199",\par
+    "description" : "The best pillow for amazing programmers.",\par
+    "category_id" : 2,\par
+    "created" : "2018-06-01 00:35:07"\par
+\}\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\par
+6.0 READ ONE PRODUCT\par
+6.1 Create read_one.php file\par
+Open product folder. Create new read_one.php file. Open that file and put the following code.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Access-Control-Allow-Headers: access");\par
+header("Access-Control-Allow-Methods: GET");\par
+header("Access-Control-Allow-Credentials: true");\par
+header('Content-Type: application/json');\par
+\par
+// include database and object files\par
+include_once '../config/database.php';\par
+include_once '../objects/product.php';\par
+\par
+// get database connection\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+\par
+// prepare product object\par
+$product = new Product($db);\par
+\par
+// set ID property of record to read\par
+$product->id = isset($_GET['id']) ? $_GET['id'] : die();\par
+\par
+// read the details of product to be edited\par
+$product->readOne();\par
+\par
+if($product->name!=null)\{\par
+\tab // create array\par
+\tab $product_arr = array(\par
+\tab\tab "id" =>  $product->id,\par
+\tab\tab "name" => $product->name,\par
+\tab\tab "description" => $product->description,\par
+\tab\tab "price" => $product->price,\par
+\tab\tab "category_id" => $product->category_id,\par
+\tab\tab "category_name" => $product->category_name\par
+\par
+\tab );\par
+\par
+\tab // set response code - 200 OK\par
+\tab http_response_code(200);\par
+\par
+\tab // make it json format\par
+\tab echo json_encode($product_arr);\par
+\}\par
+\par
+else\{\par
+\tab // set response code - 404 Not found\par
+    http_response_code(404);\par
+\par
+\tab // tell the user product does not exist\par
+\tab echo json_encode(array("message" => "Product does not exist."));\par
+\}\par
+?>\par
+6.2 Product readOne() method\par
+Open objects folder. Open product.php file. The previous section will not work without the following code inside the Product class.\par
+\par
+// used when filling up the update product form\par
+function readOne()\{\par
+\par
+\tab // query to read single record\par
+\tab $query = "SELECT\par
+\tab\tab\tab\tab c.name as category_name, p.id, p.name, p.description, p.price, p.category_id, p.created\par
+\tab\tab\tab FROM\par
+\tab\tab\tab\tab " . $this->table_name . " p\par
+\tab\tab\tab\tab LEFT JOIN\par
+\tab\tab\tab\tab\tab categories c\par
+\tab\tab\tab\tab\tab\tab ON p.category_id = c.id\par
+\tab\tab\tab WHERE\par
+\tab\tab\tab\tab p.id = ?\par
+\tab\tab\tab LIMIT\par
+\tab\tab\tab\tab 0,1";\par
+\par
+\tab // prepare query statement\par
+\tab $stmt = $this->conn->prepare( $query );\par
+\par
+\tab // bind id of product to be updated\par
+\tab $stmt->bindParam(1, $this->id);\par
+\par
+\tab // execute query\par
+\tab $stmt->execute();\par
+\par
+\tab // get retrieved row\par
+\tab $row = $stmt->fetch(PDO::FETCH_ASSOC);\par
+\par
+\tab // set values to object properties\par
+\tab $this->name = $row['name'];\par
+\tab $this->price = $row['price'];\par
+\tab $this->description = $row['description'];\par
+\tab $this->category_id = $row['category_id'];\par
+\tab $this->category_name = $row['category_name'];\par
+\}\par
+6.3 Output\par
+First, we will test for a product that exists. Open POSTMAN. Enter the following as the request URL. Click the blue "Send" button.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/read_one.php?id=60 }}{\fldrslt{http://localhost/api/product/read_one.php?id=60\ul0\cf0}}}}\f0\fs22\par
+\par
+\par
+\par
+Next, we will test for a product that does not exist. Enter the following as the request URL. Click the blue "Send" button.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/read_one.php?id=999 }}{\fldrslt{http://localhost/api/product/read_one.php?id=999\ul0\cf0}}}}\f0\fs22\par
+\par
+\par
+\par
+\par
+\par
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\par
+7.0 UPDATE PRODUCT\par
+7.1 Create "update.php" file\par
+Open product folder. Create new update.php file. Open that file and put the following code inside it.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Content-Type: application/json; charset=UTF-8");\par
+header("Access-Control-Allow-Methods: POST");\par
+header("Access-Control-Max-Age: 3600");\par
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");\par
+\par
+// include database and object files\par
+include_once '../config/database.php';\par
+include_once '../objects/product.php';\par
+\par
+// get database connection\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+\par
+// prepare product object\par
+$product = new Product($db);\par
+\par
+// get id of product to be edited\par
+$data = json_decode(file_get_contents("php://input"));\par
+\par
+// set ID property of product to be edited\par
+$product->id = $data->id;\par
+\par
+// set product property values\par
+$product->name = $data->name;\par
+$product->price = $data->price;\par
+$product->description = $data->description;\par
+$product->category_id = $data->category_id;\par
+\par
+// update the product\par
+if($product->update())\{\par
+\par
+\tab // set response code - 200 ok\par
+\tab http_response_code(200);\par
+\par
+\tab // tell the user\par
+\tab echo json_encode(array("message" => "Product was updated."));\par
+\}\par
+\par
+// if unable to update the product, tell the user\par
+else\{\par
+\par
+\tab // set response code - 503 service unavailable\par
+\tab http_response_code(503);\par
+\par
+\tab // tell the user\par
+\tab echo json_encode(array("message" => "Unable to update product."));\par
+\}\par
+?>\par
+7.2 Product update() method\par
+Open objects folder. Open product.php file. The previous section will not work without the following code inside the Product class.\par
+\par
+// update the product\par
+function update()\{\par
+\par
+\tab // update query\par
+\tab $query = "UPDATE\par
+\tab\tab\tab\tab " . $this->table_name . "\par
+\tab\tab\tab SET\par
+\tab\tab\tab\tab name = :name,\par
+\tab\tab\tab\tab price = :price,\par
+\tab\tab\tab\tab description = :description,\par
+\tab\tab\tab\tab category_id = :category_id\par
+\tab\tab\tab WHERE\par
+\tab\tab\tab\tab id = :id";\par
+\par
+\tab // prepare query statement\par
+\tab $stmt = $this->conn->prepare($query);\par
+\par
+\tab // sanitize\par
+\tab $this->name=htmlspecialchars(strip_tags($this->name));\par
+\tab $this->price=htmlspecialchars(strip_tags($this->price));\par
+\tab $this->description=htmlspecialchars(strip_tags($this->description));\par
+\tab $this->category_id=htmlspecialchars(strip_tags($this->category_id));\par
+\tab $this->id=htmlspecialchars(strip_tags($this->id));\par
+\par
+\tab // bind new values\par
+\tab $stmt->bindParam(':name', $this->name);\par
+\tab $stmt->bindParam(':price', $this->price);\par
+\tab $stmt->bindParam(':description', $this->description);\par
+\tab $stmt->bindParam(':category_id', $this->category_id);\par
+\tab $stmt->bindParam(':id', $this->id);\par
+\par
+\tab // execute the query\par
+\tab if($stmt->execute())\{\par
+\tab\tab return true;\par
+\tab\}\par
+\par
+\tab return false;\par
+\}\par
+\par
+7.3 Output\par
+Open POSTMAN. Enter the following as the request URL.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/update.php }}{\fldrslt{http://localhost/api/product/update.php\ul0\cf0}}}}\f0\fs22\par
+\par
+Click "Body" tab. Click "raw". Enter the following JSON value (make sure the ID exists in your database) and click the blue "Send" button.\par
+\par
+\{\par
+    "id" : "106",\par
+    "name" : "Amazing Pillow 3.0",\par
+    "price" : "255",\par
+    "description" : "The best pillow for amazing programmers.",\par
+    "category_id" : 2,\par
+    "created" : "2018-08-01 00:35:07"\par
+\}\par
+The product ID 106, is just an example. You need to specify a product ID that exists in your database.\par
+\par
+If you specify an ID that does not exist in the database, it might still say "product was updated. It does not update anything on the database but the query was executed successfully without any syntax errors.\par
+\par
+To prevent this, you need an extra validation where you check if an ID exists in the database. This feature is not yet part of our tutorial.\par
+\par
+If updating a product is successful, it should look like this:\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\par
+8.0 DELETE PRODUCT\par
+8.1 Create "delete.php" file\par
+Open product folder. Create new delete.php file. Open that file and put the following code inside it.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Content-Type: application/json; charset=UTF-8");\par
+header("Access-Control-Allow-Methods: POST");\par
+header("Access-Control-Max-Age: 3600");\par
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");\par
+\par
+// include database and object file\par
+include_once '../config/database.php';\par
+include_once '../objects/product.php';\par
+\par
+// get database connection\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+\par
+// prepare product object\par
+$product = new Product($db);\par
+\par
+// get product id\par
+$data = json_decode(file_get_contents("php://input"));\par
+\par
+// set product id to be deleted\par
+$product->id = $data->id;\par
+\par
+// delete the product\par
+if($product->delete())\{\par
+\par
+\tab // set response code - 200 ok\par
+\tab http_response_code(200);\par
+\par
+\tab // tell the user\par
+\tab echo json_encode(array("message" => "Product was deleted."));\par
+\}\par
+\par
+// if unable to delete the product\par
+else\{\par
+\par
+\tab // set response code - 503 service unavailable\par
+\tab http_response_code(503);\par
+\par
+\tab // tell the user\par
+\tab echo json_encode(array("message" => "Unable to delete product."));\par
+\}\par
+?>\par
+8.2 Product delete() method\par
+Open objects folder. Open product.php file. The previous section will not work without the following code inside the Product class.\par
+\par
+// delete the product\par
+function delete()\{\par
+\par
+\tab // delete query\par
+\tab $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";\par
+\par
+\tab // prepare query\par
+\tab $stmt = $this->conn->prepare($query);\par
+\par
+\tab // sanitize\par
+\tab $this->id=htmlspecialchars(strip_tags($this->id));\par
+\par
+\tab // bind id of record to delete\par
+\tab $stmt->bindParam(1, $this->id);\par
+\par
+\tab // execute query\par
+\tab if($stmt->execute())\{\par
+\tab\tab return true;\par
+\tab\}\par
+\par
+\tab return false;\par
+\tab\par
+\}\par
+8.3 Output\par
+Open POSTMAN. Enter the following as the request URL.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/delete.php }}{\fldrslt{http://localhost/api/product/delete.php\ul0\cf0}}}}\f0\fs22\par
+\par
+Click "Body" tab. Click "raw". Enter the following JSON value (make sure the ID exists in your database) and click the blue "Send" button.\par
+\par
+\{\par
+    "id" : "106"\par
+\}\par
+If a product was successfully deleted, it should look like this:\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\par
+9.0 SEARCH PRODUCTS\par
+9.1 Create "search.php" file\par
+Open product folder. Create search.php file. Open that file and place the following code.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Content-Type: application/json; charset=UTF-8");\par
+ \par
+// include database and object files\par
+include_once '../config/core.php';\par
+include_once '../config/database.php';\par
+include_once '../objects/product.php';\par
+ \par
+// instantiate database and product object\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+ \par
+// initialize object\par
+$product = new Product($db);\par
+ \par
+// get keywords\par
+$keywords=isset($_GET["s"]) ? $_GET["s"] : "";\par
+ \par
+// query products\par
+$stmt = $product->search($keywords);\par
+$num = $stmt->rowCount();\par
+ \par
+// check if more than 0 record found\par
+if($num>0)\{\par
+ \par
+    // products array\par
+    $products_arr=array();\par
+    $products_arr["records"]=array();\par
+ \par
+    // retrieve our table contents\par
+    // fetch() is faster than fetchAll()\par
+    // {{\field{\*\fldinst{HYPERLINK http://stackoverflow.com/questions/2770630/pdofetchall-vs-pdofetch-in-a-loop }}{\fldrslt{http://stackoverflow.com/questions/2770630/pdofetchall-vs-pdofetch-in-a-loop\ul0\cf0}}}}\f0\fs22\par
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC))\{\par
+        // extract row\par
+        // this will make $row['name'] to\par
+        // just $name only\par
+        extract($row);\par
+ \par
+        $product_item=array(\par
+            "id" => $id,\par
+            "name" => $name,\par
+            "description" => html_entity_decode($description),\par
+            "price" => $price,\par
+            "category_id" => $category_id,\par
+            "category_name" => $category_name\par
+        );\par
+ \par
+        array_push($products_arr["records"], $product_item);\par
+    \}\par
+ \par
+    // set response code - 200 OK\par
+    http_response_code(200);\par
+ \par
+    // show products data\par
+    echo json_encode($products_arr);\par
+\}\par
+ \par
+else\{\par
+    // set response code - 404 Not found\par
+    http_response_code(404);\par
+ \par
+    // tell the user no products found\par
+    echo json_encode(\par
+        array("message" => "No products found.")\par
+    );\par
+\}\par
+?>\par
+9.2 Create search() method\par
+Open objects folder. Open product.php file. Add the following search() method.\par
+\par
+// search products\par
+function search($keywords)\{\par
+ \par
+    // select all query\par
+    $query = "SELECT\par
+                c.name as category_name, p.id, p.name, p.description, p.price, p.category_id, p.created\par
+            FROM\par
+                " . $this->table_name . " p\par
+                LEFT JOIN\par
+                    categories c\par
+                        ON p.category_id = c.id\par
+            WHERE\par
+                p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ?\par
+            ORDER BY\par
+                p.created DESC";\par
+ \par
+    // prepare query statement\par
+    $stmt = $this->conn->prepare($query);\par
+ \par
+    // sanitize\par
+    $keywords=htmlspecialchars(strip_tags($keywords));\par
+    $keywords = "%\{$keywords\}%";\par
+ \par
+    // bind\par
+    $stmt->bindParam(1, $keywords);\par
+    $stmt->bindParam(2, $keywords);\par
+    $stmt->bindParam(3, $keywords);\par
+ \par
+    // execute query\par
+    $stmt->execute();\par
+ \par
+    return $stmt;\par
+\}\par
+9.3 Output\par
+Open POSTMAN. Enter the following as the request URL.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/search.php?s=shirt }}{\fldrslt{http://localhost/api/product/search.php?s=shirt\ul0\cf0}}}}\f0\fs22\par
+\par
+Click the blue "Send" button.\par
+\par
+If there was a product found, it should look like this:\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\par
+10.0 PAGINATE PRODUCTS\par
+10.1 Create "read_paging.php" file\par
+Open product folder. Create read_paging.php file.\par
+\par
+<?php\par
+// required headers\par
+header("Access-Control-Allow-Origin: *");\par
+header("Content-Type: application/json; charset=UTF-8");\par
+ \par
+// include database and object files\par
+include_once '../config/core.php';\par
+include_once '../shared/utilities.php';\par
+include_once '../config/database.php';\par
+include_once '../objects/product.php';\par
+ \par
+// utilities\par
+$utilities = new Utilities();\par
+ \par
+// instantiate database and product object\par
+$database = new Database();\par
+$db = $database->getConnection();\par
+ \par
+// initialize object\par
+$product = new Product($db);\par
+ \par
+// query products\par
+$stmt = $product->readPaging($from_record_num, $records_per_page);\par
+$num = $stmt->rowCount();\par
+ \par
+// check if more than 0 record found\par
+if($num>0)\{\par
+ \par
+    // products array\par
+    $products_arr=array();\par
+    $products_arr["records"]=array();\par
+    $products_arr["paging"]=array();\par
+ \par
+    // retrieve our table contents\par
+    // fetch() is faster than fetchAll()\par
+    // {{\field{\*\fldinst{HYPERLINK http://stackoverflow.com/questions/2770630/pdofetchall-vs-pdofetch-in-a-loop }}{\fldrslt{http://stackoverflow.com/questions/2770630/pdofetchall-vs-pdofetch-in-a-loop\ul0\cf0}}}}\f0\fs22\par
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC))\{\par
+        // extract row\par
+        // this will make $row['name'] to\par
+        // just $name only\par
+        extract($row);\par
+ \par
+        $product_item=array(\par
+            "id" => $id,\par
+            "name" => $name,\par
+            "description" => html_entity_decode($description),\par
+            "price" => $price,\par
+            "category_id" => $category_id,\par
+            "category_name" => $category_name\par
+        );\par
+ \par
+        array_push($products_arr["records"], $product_item);\par
+    \}\par
+ \par
+ \par
+    // include paging\par
+    $total_rows=$product->count();\par
+    $page_url="\{$home_url\}product/read_paging.php?";\par
+    $paging=$utilities->getPaging($page, $total_rows, $records_per_page, $page_url);\par
+    $products_arr["paging"]=$paging;\par
+ \par
+    // set response code - 200 OK\par
+    http_response_code(200);\par
+ \par
+    // make it json format\par
+    echo json_encode($products_arr);\par
+\}\par
+ \par
+else\{\par
+ \par
+    // set response code - 404 Not found\par
+    http_response_code(404);\par
+ \par
+    // tell the user products does not exist\par
+    echo json_encode(\par
+        array("message" => "No products found.")\par
+    );\par
+\}\par
+?>\par
+10.2 Create "core.php" file\par
+This file holds our core configuration like the home URL and pagination variables.\par
+\par
+Open the config folder and create core.php file. Open core.php file and place the following code.\par
+\par
+<?php\par
+// show error reporting\par
+ini_set('display_errors', 1);\par
+error_reporting(E_ALL);\par
+ \par
+// home page url\par
+$home_url="http://localhost/api/";\par
+ \par
+// page given in URL parameter, default page is one\par
+$page = isset($_GET['page']) ? $_GET['page'] : 1;\par
+ \par
+// set number of records per page\par
+$records_per_page = 5;\par
+ \par
+// calculate for the query LIMIT clause\par
+$from_record_num = ($records_per_page * $page) - $records_per_page;\par
+?>\par
+10.3 Create "readPaging()" method\par
+Open objects folder. Open product.php file. Add the following method inside product class. This method will return a list of records limited to what we set in $records_per_page of the previous section.\par
+\par
+// read products with pagination\par
+public function readPaging($from_record_num, $records_per_page)\{\par
+ \par
+    // select query\par
+    $query = "SELECT\par
+                c.name as category_name, p.id, p.name, p.description, p.price, p.category_id, p.created\par
+            FROM\par
+                " . $this->table_name . " p\par
+                LEFT JOIN\par
+                    categories c\par
+                        ON p.category_id = c.id\par
+            ORDER BY p.created DESC\par
+            LIMIT ?, ?";\par
+ \par
+    // prepare query statement\par
+    $stmt = $this->conn->prepare( $query );\par
+ \par
+    // bind variable values\par
+    $stmt->bindParam(1, $from_record_num, PDO::PARAM_INT);\par
+    $stmt->bindParam(2, $records_per_page, PDO::PARAM_INT);\par
+ \par
+    // execute query\par
+    $stmt->execute();\par
+ \par
+    // return values from database\par
+    return $stmt;\par
+\}\par
+10.4 Create "count()" method\par
+Still in the product class (product.php file), add the following method. The total rows are needed to build the pagination array. It is included in the 'paging' computation.\par
+\par
+// used for paging products\par
+public function count()\{\par
+    $query = "SELECT COUNT(*) as total_rows FROM " . $this->table_name . "";\par
+ \par
+    $stmt = $this->conn->prepare( $query );\par
+    $stmt->execute();\par
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);\par
+ \par
+    return $row['total_rows'];\par
+\}\par
+10.5 Get "paging" array\par
+Create shared folder. Open shared folder.\par
+\par
+Create utilities.php file. Open utilities.php file and place the following code.\par
+\par
+<?php\par
+class Utilities\{\par
+ \par
+    public function getPaging($page, $total_rows, $records_per_page, $page_url)\{\par
+ \par
+        // paging array\par
+        $paging_arr=array();\par
+ \par
+        // button for first page\par
+        $paging_arr["first"] = $page>1 ? "\{$page_url\}page=1" : "";\par
+ \par
+        // count all products in the database to calculate total pages\par
+        $total_pages = ceil($total_rows / $records_per_page);\par
+ \par
+        // range of links to show\par
+        $range = 2;\par
+ \par
+        // display links to 'range of pages' around 'current page'\par
+        $initial_num = $page - $range;\par
+        $condition_limit_num = ($page + $range)  + 1;\par
+ \par
+        $paging_arr['pages']=array();\par
+        $page_count=0;\par
+         \par
+        for($x=$initial_num; $x<$condition_limit_num; $x++)\{\par
+            // be sure '$x is greater than 0' AND 'less than or equal to the $total_pages'\par
+            if(($x > 0) && ($x <= $total_pages))\{\par
+                $paging_arr['pages'][$page_count]["page"]=$x;\par
+                $paging_arr['pages'][$page_count]["url"]="\{$page_url\}page=\{$x\}";\par
+                $paging_arr['pages'][$page_count]["current_page"] = $x==$page ? "yes" : "no";\par
+ \par
+                $page_count++;\par
+            \}\par
+        \}\par
+ \par
+        // button for last page\par
+        $paging_arr["last"] = $page<$total_pages ? "\{$page_url\}page=\{$total_pages\}" : "";\par
+ \par
+        // json format\par
+        return $paging_arr;\par
+    \}\par
+ \par
+\}\par
+?>\par
+10.6 Output\par
+Open POSTMAN. Enter the following as the request URL.\par
+\par
+{{\field{\*\fldinst{HYPERLINK http://localhost/api/product/read_paging.php }}{\fldrslt{http://localhost/api/product/read_paging.php\ul0\cf0}}}}\f0\fs22\par
+\par
+Click the blue "Send" button.\par
+\par
+If there are products found, scroll down to see the paging node. It should look like this:\par
+}
+ 
