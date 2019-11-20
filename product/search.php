@@ -3,7 +3,7 @@
 header('Access-Control-Allow-Origin:*');
 header('Content-Type:Application/json');
 
-//include_once '../config/core.php';
+include_once '../config/core.php';
 include_once '../config/database.php';
 include_once '../models/product.php';
 

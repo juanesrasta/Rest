@@ -19,6 +19,22 @@ class Utilities {
 
         $page_count = 0;
 
+        for($x=$initial_num;  $x < $condition_limit_num; $x++){
+
+            if ($x > 0){
+                $arr_paging["pages"][$page_count]["page"]=$x;
+                $arr_paging["pages"][$page_count]["url"]="{$page_url}page={$x}";
+                $arr_paging["pages"][$page_count]["current_page"] = $x == $page ? "yes": "no";
+
+                $page_count ++;
+            }
+
+        }
+
+        $arr_paging["last"] = $page<$total_pages ? "{$page_url}page={$total_pages}":"";
+
+        return $arr_paging;
+
     }
 
 }
