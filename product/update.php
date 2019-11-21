@@ -26,7 +26,7 @@ if($product->update()){
 
     http_response_code(200);
 
-    echo json_encode(array("message"=>"Product was update"));
+    echo json_encode(array("message"=>"Product was update","resultado"=>"OK"));
 
 }
 else{
